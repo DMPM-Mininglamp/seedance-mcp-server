@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Railway SSE 连接测试</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4; }
+        .log { padding: 5px; margin: 5px 0; border-left: 3px solid #666; }
+        .success { border-color: #4ec9b0; color: #4ec9b0; }
+        .error { border-color: #f48771; color: #f48771; }
+        .info { border-color: #569cd6; color: #569cd6; }
+        button { padding: 10px 20px; margin: 10px 5px 10px 0; cursor: pointer; }
+        #logs { max-height: 600px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <h1>🚂 Railway SSE 连接测试</h1>
+
+    <div>
+        <button onclick="testLocalSSE()">测试本地 SSE (localhost:3002)</button>
+        <button onclick="testRailwaySSE()">测试 Railway SSE</button>
+        <button onclick="clearLogs()">清除日志</button>
+    </div>
+
+    <div id="logs"></div>
+
+    <script>
+        let eventSource = null;
+
+        function log(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = `log ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logs.insertBefore(entry, logs.firstChild);
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        function closeExistingConnection() {
+            if (eventSource) {
+                log('关闭现有连接...', 'info');
+                eventSource.close();
+                eventSource = null;
+            }
+        }
+
+        function testSSE(url, label) {
+            closeExistingConnection();
+            clearLogs();
+            log(`开始测试 ${label}: ${url}`, 'info');
+
+            try {
+                eventSource = new EventSource(url);
+
+                eventSource.onopen = function() {
+                    log(`✅ SSE 连接已建立！`, 'success');
+                };
+
+                eventSource.addEventListener('endpoint', function(e) {
+                    log(`✅ 收到 endpoint 事件: ${e.data}`, 'success');
+                });
+
+                eventSource.addEventListener('message', function(e) {
+                    log(`✅ 收到 message 事件: ${e.data}`, 'success');
+                });
+
+                eventSource.onerror = function(error) {
+                    log(`❌ SSE 错误: ${JSON.stringify(error)}`, 'error');
+                    log(`ReadyState: ${eventSource.readyState} (0=CONNECTING, 1=OPEN, 2=CLOSED)`, 'error');
+
+                    if (eventSource.readyState === EventSource.CLOSED) {
+                        log('连接已关闭，正在重试...', 'error');
+                    }
+                };
+
+                // 超时检测
+                setTimeout(() => {
+                    if (eventSource && eventSource.readyState === EventSource.CONNECTING) {
+                        log('⚠️ 连接超时（10秒内未建立）', 'error');
+                        eventSource.close();
+                    }
+                }, 10000);
+
+            } catch (error) {
+                log(`❌ 创建 SSE 连接失败: ${error.message}`, 'error');
+            }
+        }
+
+        function testLocalSSE() {
+            testSSE('http://localhost:3002/sse', '本地服务器');
+        }
+
+        function testRailwaySSE() {
+            testSSE('https://seedance-mcp-server-production.up.railway.app/sse', 'Railway 服务器');
+        }
+
+        window.onbeforeunload = function() {
+            closeExistingConnection();
+        };
+    </script>
+</body>
+</html>
