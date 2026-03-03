@@ -46,6 +46,13 @@ const activeTransports = new Map<string, SSEServerTransport>();
 app.get("/sse", authMiddleware, async (req, res) => {
     console.log("Client connecting to SSE...");
 
+    // Set SSE headers explicitly to ensure compatibility with proxies
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no"); // Disable nginx buffering
+    res.flushHeaders();
+
     const server = new Server(
         {
             name: "seedance-video-mcp",
