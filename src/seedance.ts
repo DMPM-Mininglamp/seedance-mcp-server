@@ -160,6 +160,9 @@ export async function getSeedanceTaskStatus(taskId: string): Promise<{
 
     const data = (await response.json()) as TaskStatusResponse;
 
+    // Debug: Log the complete API response
+    console.log(`[Seedance] Raw API response for task ${taskId}:`, JSON.stringify(data, null, 2));
+
     if (data.error) {
         return {
             status: "failed",
@@ -179,9 +182,12 @@ export async function getSeedanceTaskStatus(taskId: string): Promise<{
 
     // If succeeded, extract the video URL from output
     if (data.status === "succeeded" && data.output) {
+        console.log(`[Seedance] Task succeeded, extracting output:`, JSON.stringify(data.output, null, 2));
         result.video_url = data.output.video_url;
         result.video_duration = data.output.video_duration;
         result.last_frame_image = data.output.last_frame_image;
+    } else {
+        console.log(`[Seedance] Task status=${data.status}, output=${data.output ? 'exists' : 'missing'}`);
     }
 
     console.log(`[Seedance] Task ${taskId}: status=${data.status}`);
