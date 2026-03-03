@@ -43,15 +43,20 @@ interface TaskStatusResponse {
     status: string; // "queued" | "running" | "succeeded" | "failed" | "cancelled"
     created_at: number;
     updated_at: number;
-    content?: ContentItem[];
+    content?: {
+        video_url?: string;
+        last_frame_image?: string;
+    };
     output?: {
         video_url?: string;
         video_duration?: number;
         last_frame_image?: string;
     };
+    duration?: number; // 视频时长（秒）
     error?: { code: string; message: string };
     usage?: {
-        video_duration?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
     };
 }
 
@@ -180,14 +185,24 @@ export async function getSeedanceTaskStatus(taskId: string): Promise<{
         status: data.status,
     };
 
-    // If succeeded, extract the video URL from output
-    if (data.status === "succeeded" && data.output) {
-        console.log(`[Seedance] Task succeeded, extracting output:`, JSON.stringify(data.output, null, 2));
-        result.video_url = data.output.video_url;
-        result.video_duration = data.output.video_duration;
-        result.last_frame_image = data.output.last_frame_image;
+    // If succeeded, extract the video URL from content or output
+    if (data.status === "succeeded") {
+        // Try content first (Seedance 1.5 Pro uses this)
+        if (data.content && typeof data.content === 'object') {
+            console.log(`[Seedance] Task succeeded, extracting from content:`, JSON.stringify(data.content, null, 2));
+            result.video_url = data.content.video_url;
+            result.last_frame_image = data.content.last_frame_image;
+            result.video_duration = data.duration; // duration is at root level
+        }
+        // Fallback to output (for other models)
+        else if (data.output) {
+            console.log(`[Seedance] Task succeeded, extracting from output:`, JSON.stringify(data.output, null, 2));
+            result.video_url = data.output.video_url;
+            result.video_duration = data.output.video_duration;
+            result.last_frame_image = data.output.last_frame_image;
+        }
     } else {
-        console.log(`[Seedance] Task status=${data.status}, output=${data.output ? 'exists' : 'missing'}`);
+        console.log(`[Seedance] Task status=${data.status}`);
     }
 
     console.log(`[Seedance] Task ${taskId}: status=${data.status}`);
